@@ -12,9 +12,9 @@
 #import <TencentOpenAPI/QQApiInterface.h>
 
 //腾讯开发平台http://open.qq.com/
-//TODO:注意修改
-#define APPID                   @"1101001001"
-#define UNIVERSALLINK   @"https://www.google.com/qq_conn/1101001001"
+//TODO:注意修改APPID和UNIVERSALLINK
+#define APPID                   @""
+#define UNIVERSALLINK   @""
 
 @interface AppDelegate ()<QQApiInterfaceDelegate, TencentLoginDelegate, TencentSessionDelegate>
 
@@ -43,11 +43,6 @@
     [self.window makeKeyAndVisible];
     
     return YES;
-}
-
-- (BOOL)qqAppInstalled{
-
-    return [QQApiInterface isQQInstalled] && [QQApiInterface isQQSupportApi];
 }
 
 #pragma mark - UIApplicationDelegate
@@ -112,18 +107,21 @@
 #pragma mark - 发起QQ分享
 - (void)sendQQShareReq{
     
-   QQApiNewsObject *newsObj = [QQApiNewsObject objectWithURL:[NSURL URLWithString:@"https://www.baidu.com/"] title:@"分享标题" description:@"分享内容" previewImageURL:[NSURL URLWithString:@"http://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/pic/124708/cn_zh/1578366524866/framework.png"]];
-   
-    SendMessageToQQReq *req = [SendMessageToQQReq reqWithContent:newsObj];
+    if([QQApiInterface isQQInstalled] && [QQApiInterface isQQSupportApi]){
     
-   QQApiSendResultCode code = [QQApiInterface sendReq:req];//分享给QQ好友
-//    QQApiSendResultCode code = [QQApiInterface SendReqToQZone:req];//分享到QQ空间
-   
-    //参考QQApiInterfaceObject.h文件中，QQApiSendResultCode枚举类型
-    if(code == EQQAPISENDSUCESS){
+        QQApiNewsObject *newsObj = [QQApiNewsObject objectWithURL:[NSURL URLWithString:@"https://www.baidu.com/"] title:@"分享标题" description:@"分享内容" previewImageURL:[NSURL URLWithString:@"http://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/pic/124708/cn_zh/1578366524866/framework.png"]];
+       
+        SendMessageToQQReq *req = [SendMessageToQQReq reqWithContent:newsObj];
         
-        NSLog(@"分享成功");
-    }else if(code == EQQAPIQQNOTINSTALLED){
+        QQApiSendResultCode code = [QQApiInterface sendReq:req];//分享给QQ好友
+//        QQApiSendResultCode code = [QQApiInterface SendReqToQZone:req];//分享到QQ空间
+       
+        //参考QQApiInterfaceObject.h文件中QQApiSendResultCode枚举类型
+        if(code == EQQAPISENDSUCESS){
+            NSLog(@"分享成功");
+        }
+    }else{
+        
         NSLog(@"当前设备未安装QQ应用或版本过低");
     }
 }
@@ -131,25 +129,53 @@
 #pragma mark - 发起登录授权
 - (void)sendQQAuthReq{
     
-    if([self qqAppInstalled]){
+    if([QQApiInterface isQQInstalled] && [QQApiInterface isQQSupportApi]){
         
         NSArray* permissions = [NSArray arrayWithObjects:kOPEN_PERMISSION_GET_USER_INFO, kOPEN_PERMISSION_GET_SIMPLE_USER_INFO, nil];
-        [_tencentOAuth authorize:permissions inSafari:NO];
+        [_tencentOAuth authorize:permissions];
+
     }else{
         
         NSLog(@"当前设备未安装QQ应用或版本过低");
     }
 }
 
-#pragma mark - TencentSessionDelegate
+#pragma mark - TencentLoginDelegate
 // 登录成功后的回调
 - (void)tencentDidLogin{
     
-    NSLog(@"QQ登录成功");
-    [_tencentOAuth getUserInfo];//获取当前用户基本信息，调用这个方法会走- (void)getUserInfoResponse:(APIResponse *)response回调
+    NSLog(@"授权登录成功");
     
-    NSString *code = [_tencentOAuth getServerSideCode];//获取code
-    NSLog(@"授权登录Code:%@", code);
+    //TODO:开发者可以选择下面任意一种方式来获取UnionID、OpenID、用户基本信息
+    
+    //方法一、用AccessToken调用OpenAPI（通常由后端服务器完成）
+    NSString *accessToken = [_tencentOAuth accessToken];//注意：AccessToken是会过期的
+    NSDate *expirationDate = [_tencentOAuth expirationDate];//Access_Token过期时间
+    
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    [dateFormatter setTimeStyle:NSDateFormatterFullStyle];
+    
+    NSLog(@"AccessToken：%@", accessToken);
+    NSLog(@"ExpirationDate：%@", [dateFormatter stringFromDate:expirationDate]);
+    
+    //获取UnionID和OpenID，GET请求：https://graph.qq.com/oauth2.0/me?access_token=[Access_Token]&unionid=1
+    //获取用户基本信息，GET请求：https://graph.qq.com/user/get_user_info?access_token=[Access_Token]&oauth_consumer_key=[Client_ID]&openid=[Open_ID]
+    
+    
+    //方法二、直接在App前端获取
+    
+    //获取OpenID
+    NSLog(@"OpenID：%@", [_tencentOAuth getUserOpenID]);
+
+    //获取UnionID，会走-didGetUnionID回调函数
+    if([_tencentOAuth RequestUnionId]){
+        NSLog(@"UnionID获取成功");
+    }
+
+    //获取用户基本信息，会走getUserInfoResponse:回调函数
+    if([_tencentOAuth getUserInfo]){
+        NSLog(@"用户基本信息获取成功");
+    }
 }
 
 // 登录失败后的回调
@@ -164,13 +190,20 @@
     NSLog(@"QQ登录时网络有问题");
 }
 
+//获取UnionID回调
+- (void)didGetUnionID{
+
+    NSLog(@"UnionID：%@", _tencentOAuth.unionid);
+}
+
+//获取用户基本信息回调
 - (void)getUserInfoResponse:(APIResponse *)response{
     
-    //获取用户基本信息
 //    response.jsonResponse;//NSDictionary格式
 //    response.message;//JSON String格式
     NSLog(@"%@", response.jsonResponse);
 }
+
 
 #pragma mark - QQApiInterfaceDelegate
 - (void)onReq:(QQBaseReq *)req {
