@@ -8,15 +8,16 @@
 
 #import "AppDelegate.h"
 #import "HomePageViewController.h"
+
 #import <TencentOpenAPI/TencentOAuth.h>
 #import <TencentOpenAPI/QQApiInterface.h>
 
 //腾讯开发平台http://open.qq.com/
 //TODO:注意修改APPID和UNIVERSALLINK
-#define APPID                   @""
-#define UNIVERSALLINK   @""
+#define APP_ID                   @"101923149"
+#define UNIVERSAL_LINK   @"https://www.hongyantu.com/qq_conn/101923149"
 
-@interface AppDelegate ()<QQApiInterfaceDelegate, TencentLoginDelegate, TencentSessionDelegate>
+@interface AppDelegate ()<TencentLoginDelegate, TencentSessionDelegate>
 
 @property (nonatomic, strong) TencentOAuth *tencentOAuth;
 
@@ -31,7 +32,7 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
     
-    _tencentOAuth = [[TencentOAuth alloc] initWithAppId:APPID andUniversalLink:UNIVERSALLINK andDelegate:self];
+    _tencentOAuth = [[TencentOAuth alloc] initWithAppId:APP_ID andUniversalLink:UNIVERSAL_LINK andDelegate:self];
     if(_tencentOAuth){
         NSLog(@"Tencent openSDK初始化成功");
     }
@@ -46,96 +47,41 @@
 }
 
 #pragma mark - UIApplicationDelegate
-- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url {
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options{
     
-    return [self tencentHandleOpenURL:url];
-}
-
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation{
+    if([TencentOAuth CanHandleOpenURL:url]){
+               
+       return [TencentOAuth HandleOpenURL:url];
+    }
     
-    return [self tencentHandleOpenURL:url];
+    return YES;
 }
 
 - (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity restorationHandler:(void(^)(NSArray<id<UIUserActivityRestoring>> * __nullable restorableObjects))restorationHandler {
     
-    return [self tencentHandleOpenUniversalLink:userActivity];
-}
-
-#pragma mark - 处理由手Q唤起的普通跳转请求
-- (BOOL)tencentHandleOpenURL:(NSURL *)url{
-    
-    if([url.host isEqualToString:@"response_from_qq"]){
-        
-        return [QQApiInterface handleOpenURL:url delegate:self];
-    }else if([url.host isEqualToString:@"qzapp"]){
-    
-        if([TencentOAuth CanHandleOpenURL:url]){
-            return [TencentOAuth HandleOpenURL:url];
-        }else{
+    if([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
+     
+        NSURL *url = userActivity.webpageURL;
+        if(url && [TencentOAuth CanHandleUniversalLink:url]) {
             
-            return NO;
+            return [TencentOAuth HandleUniversalLink:url];
         }
-    }else{
-        
-        return NO;
     }
-}
-
-#pragma mark - 处理由手Q唤起的universallink跳转请求
-- (BOOL)tencentHandleOpenUniversalLink:(NSUserActivity *)userActivity{
     
-    if([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]){
-           
-       NSURL *url = userActivity.webpageURL;
-       
-       if(url && [TencentOAuth CanHandleOpenURL:url]){
-           NSLog(@"%@", url.description);
-#if BUILD_QQAPIDEMO
-           //兼容[QQApiInterface handleOpenURL:delegate:]的接口回调能力
-           [QQApiInterface handleOpenUniversallink:url delegate:(id<QQApiInterfaceDelegate>)[QQApiShareEntry class]];
-#endif
-            return [QQApiInterface handleOpenUniversallink:url delegate:self];
-       }else{
-           return YES;
-           }
-   }else{
-       
-       return YES;
-   }
-}
-
-#pragma mark - 发起QQ分享
-- (void)sendQQShareReq{
-    
-    if([QQApiInterface isQQInstalled] && [QQApiInterface isQQSupportApi]){
-    
-        QQApiNewsObject *newsObj = [QQApiNewsObject objectWithURL:[NSURL URLWithString:@"https://www.baidu.com/"] title:@"分享标题" description:@"分享内容" previewImageURL:[NSURL URLWithString:@"http://docs-aliyun.cn-hangzhou.oss.aliyun-inc.com/assets/pic/124708/cn_zh/1578366524866/framework.png"]];
-       
-        SendMessageToQQReq *req = [SendMessageToQQReq reqWithContent:newsObj];
-        
-        QQApiSendResultCode code = [QQApiInterface sendReq:req];//分享给QQ好友
-//        QQApiSendResultCode code = [QQApiInterface SendReqToQZone:req];//分享到QQ空间
-       
-        //参考QQApiInterfaceObject.h文件中QQApiSendResultCode枚举类型
-        if(code == EQQAPISENDSUCESS){
-            NSLog(@"分享成功");
-        }
-    }else{
-        
-        NSLog(@"当前设备未安装QQ应用或版本过低");
-    }
+    return YES;
 }
 
 #pragma mark - 发起登录授权
 - (void)sendQQAuthReq{
-    
+
     if([QQApiInterface isQQInstalled] && [QQApiInterface isQQSupportApi]){
         
-        NSArray* permissions = [NSArray arrayWithObjects:kOPEN_PERMISSION_GET_USER_INFO, kOPEN_PERMISSION_GET_SIMPLE_USER_INFO, nil];
+        NSArray* permissions = [NSArray arrayWithObjects:kOPEN_PERMISSION_GET_SIMPLE_USER_INFO, nil];//移动端获取用户信息
+        _tencentOAuth.authShareType = AuthShareType_QQ;//进行第三方在授权登录/分享时，选择 QQ（若要选择TIM，则替换为：AuthShareType_TIM）
+        _tencentOAuth.authMode = kAuthModeServerSideCode; //授权方式使用Server Side Code
         [_tencentOAuth authorize:permissions];
-
     }else{
-        
+
         NSLog(@"当前设备未安装QQ应用或版本过低");
     }
 }
@@ -146,36 +92,15 @@
     
     NSLog(@"授权登录成功");
     
-    //TODO:开发者可以选择下面任意一种方式来获取UnionID、OpenID、用户基本信息
+    //注意，区分两种授权模式：
     
-    //方法一、用AccessToken调用OpenAPI（通常由后端服务器完成）
-    NSString *accessToken = [_tencentOAuth accessToken];//注意：AccessToken是会过期的
-    NSDate *expirationDate = [_tencentOAuth expirationDate];//Access_Token过期时间
+    //1.Server Side Code Mode:
+    NSString *code = [_tencentOAuth getServerSideCode];
+    NSLog(@"Authorization Code：%@", code);
     
-    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-    [dateFormatter setTimeStyle:NSDateFormatterFullStyle];
-    
-    NSLog(@"AccessToken：%@", accessToken);
-    NSLog(@"ExpirationDate：%@", [dateFormatter stringFromDate:expirationDate]);
-    
-    //获取UnionID和OpenID，GET请求：https://graph.qq.com/oauth2.0/me?access_token=[Access_Token]&unionid=1
-    //获取用户基本信息，GET请求：https://graph.qq.com/user/get_user_info?access_token=[Access_Token]&oauth_consumer_key=[Client_ID]&openid=[Open_ID]
-    
-    
-    //方法二、直接在App前端获取
-    
-    //获取OpenID
-    NSLog(@"OpenID：%@", [_tencentOAuth getUserOpenID]);
-
-    //获取UnionID，会走-didGetUnionID回调函数
-    if([_tencentOAuth RequestUnionId]){
-        NSLog(@"UnionID获取成功");
-    }
-
-    //获取用户基本信息，会走getUserInfoResponse:回调函数
-    if([_tencentOAuth getUserInfo]){
-        NSLog(@"用户基本信息获取成功");
-    }
+    //2.Client Side Token Mode:
+    NSString *token = [_tencentOAuth accessToken];
+    NSLog(@"Access Token：%@", token);
 }
 
 // 登录失败后的回调
@@ -188,45 +113,6 @@
 - (void)tencentDidNotNetWork{
     
     NSLog(@"QQ登录时网络有问题");
-}
-
-//获取UnionID回调
-- (void)didGetUnionID{
-
-    NSLog(@"UnionID：%@", _tencentOAuth.unionid);
-}
-
-//获取用户基本信息回调
-- (void)getUserInfoResponse:(APIResponse *)response{
-    
-//    response.jsonResponse;//NSDictionary格式
-//    response.message;//JSON String格式
-    NSLog(@"%@", response.jsonResponse);
-}
-
-
-#pragma mark - QQApiInterfaceDelegate
-- (void)onReq:(QQBaseReq *)req {
-    
-}
-
-//注意：微信和QQ回调方法用的是同一个，这里注意判断resp类型来区别分享来源
-- (void)onResp:(id)resp{
-    
-    if([resp isKindOfClass:[QQBaseResp class]]){
-        
-        QQBaseResp *response = (QQBaseResp *)resp;
-        
-        if ([response.result isEqualToString:@"0"]) {
-            //QQ分享成功回调
-            NSLog(@"QQ分享成功回调");
-        }
-    }
-}
-
-- (void)isOnlineResponse:(NSDictionary *)response{
-    
-    NSLog(@"%@", response);
 }
 
 @end

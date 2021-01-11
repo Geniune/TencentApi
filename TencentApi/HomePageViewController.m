@@ -20,13 +20,13 @@
     // Do any additional setup after loading the view.
     self.view.backgroundColor = [UIColor whiteColor];
     
-    UIButton *btn1 = [[UIButton alloc] initWithFrame:CGRectMake(50, 50, 150, 38)];
+    UIButton *btn1 = [[UIButton alloc] initWithFrame:CGRectMake(50, 150, 150, 38)];
     [btn1 setTitle:@"分享给QQ好友" forState:UIControlStateNormal];
     [btn1 setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
     [btn1 addTarget:self action:@selector(shareAction:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:btn1];
     
-    UIButton *btn2 = [[UIButton alloc] initWithFrame:CGRectMake(50, 100, 150, 38)];
+    UIButton *btn2 = [[UIButton alloc] initWithFrame:CGRectMake(50, 200, 150, 38)];
     [btn2 setTitle:@"授权登录" forState:UIControlStateNormal];
     [btn2 setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
     [btn2 addTarget:self action:@selector(authAction:) forControlEvents:UIControlEventTouchUpInside];
@@ -35,7 +35,7 @@
 
 - (void)shareAction:(id)sender{
     
-     [[AppDelegate shareAppDelegate] sendQQShareReq];
+//     [[AppDelegate shareAppDelegate] sendQQShareReq];
 }
 
 - (void)authAction:(id)sender{

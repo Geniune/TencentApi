@@ -14,7 +14,6 @@
 
 + (AppDelegate* )shareAppDelegate;
 
-- (void)sendQQShareReq;
 - (void)sendQQAuthReq;
 
 @end
