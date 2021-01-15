@@ -7,7 +7,7 @@
 //
 
 #import "HomePageViewController.h"
-#import "AppDelegate.h"
+#import "ThirdSocialManager.h"
 
 @interface HomePageViewController ()
 
@@ -20,27 +20,29 @@
     // Do any additional setup after loading the view.
     self.view.backgroundColor = [UIColor whiteColor];
     
+    self.title = @"第三方授权登录";
+    
     UIButton *btn1 = [[UIButton alloc] initWithFrame:CGRectMake(50, 150, 150, 38)];
-    [btn1 setTitle:@"分享给QQ好友" forState:UIControlStateNormal];
+    [btn1 setTitle:@"微信" forState:UIControlStateNormal];
     [btn1 setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
-    [btn1 addTarget:self action:@selector(shareAction:) forControlEvents:UIControlEventTouchUpInside];
+    [btn1 addTarget:self action:@selector(wxAuthAction:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:btn1];
     
     UIButton *btn2 = [[UIButton alloc] initWithFrame:CGRectMake(50, 200, 150, 38)];
-    [btn2 setTitle:@"授权登录" forState:UIControlStateNormal];
+    [btn2 setTitle:@"QQ" forState:UIControlStateNormal];
     [btn2 setTitleColor:[UIColor redColor] forState:UIControlStateNormal];
-    [btn2 addTarget:self action:@selector(authAction:) forControlEvents:UIControlEventTouchUpInside];
+    [btn2 addTarget:self action:@selector(qqAuthAction:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:btn2];
 }
 
-- (void)shareAction:(id)sender{
+- (void)wxAuthAction:(id)sender{
     
-//     [[AppDelegate shareAppDelegate] sendQQShareReq];
+    [SOCIALMANAGER WXAuth];
 }
 
-- (void)authAction:(id)sender{
+- (void)qqAuthAction:(id)sender{
         
-    [[AppDelegate shareAppDelegate] sendQQAuthReq];
+    [SOCIALMANAGER QQAuth];
 }
 
 /*

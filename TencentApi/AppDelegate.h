@@ -12,9 +12,5 @@
 
 @property (strong, nonatomic) UIWindow *window;
 
-+ (AppDelegate* )shareAppDelegate;
-
-- (void)sendQQAuthReq;
-
 @end
 
